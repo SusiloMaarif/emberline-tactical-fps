@@ -19,6 +19,7 @@ export function createHud() {
     buy: $('buy'), buyGrid: $('buy-grid'), bomb: $('bomb-status'),
     weaponName: $('weapon-name'), minimap: $('minimap'),
     objective: $('objective'), grenades: $('grenade-slots'),
+    scoreboard: $('scoreboard'),
   };
   const mapCtx = els.minimap ? els.minimap.getContext('2d') : null;
   let hitTimer = null;
@@ -111,6 +112,15 @@ export function createHud() {
       bannerTimer = setTimeout(() => { els.banner.hidden = true; }, ms);
     },
     hideBanner() { els.banner.hidden = true; },
+    // Round scoreboard: every player, kills/deaths, best first.
+    showScoreboard(rows, score) {
+      const title = score ? `SCOREBOARD — EMBER ${score.ember} · ${score.slate} SLATE` : 'SCOREBOARD';
+      els.scoreboard.innerHTML = `<div class="sb-title">${title}</div>` + rows.map((r) => (
+        `<div class="sb-row"><span class="${r.team === 'ember' ? 't-ember' : 't-slate'}">${r.name}</span><span>${r.kills} K / ${r.deaths} D</span></div>`
+      )).join('');
+      els.scoreboard.hidden = false;
+    },
+    hideScoreboard() { els.scoreboard.hidden = true; },
     showOverlay,
     hideOverlay() { els.overlay.hidden = true; },
     onPlay(fn) { els.play.addEventListener('click', fn); },

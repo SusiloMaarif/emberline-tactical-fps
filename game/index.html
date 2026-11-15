@@ -48,6 +48,10 @@
   #minimap { position: fixed; top: 16px; left: 16px; width: 150px; height: 124px; border: 1px solid var(--hairline); }
   #objective { position: fixed; top: 148px; left: 16px; font-size: 13px; color: var(--muted); max-width: 220px; line-height: 1.45; }
   #killfeed { position: fixed; top: 16px; right: 16px; display: grid; gap: 4px; font-size: 13px; text-align: right; }
+  #scoreboard { position: fixed; top: 200px; left: 16px; width: 220px; background: rgba(20,18,16,.85); border: 1px solid var(--hairline); border-radius: 4px; padding: 8px 10px; font-size: 13px; font-family: var(--font-readout); }
+  #scoreboard[hidden] { display: none; }
+  #scoreboard .sb-title { font-size: 11px; letter-spacing: .1em; color: var(--muted); margin-bottom: 6px; }
+  #scoreboard .sb-row { display: flex; justify-content: space-between; padding: 2px 0; }
   .feed-row { background: rgba(20,18,16,.7); padding: 3px 8px; border-radius: 3px; }
   .t-ember { color: var(--accent); }
   .t-slate { color: var(--teal); }
@@ -110,6 +114,7 @@
   </div>
   <div id="bomb-status"></div>
   <div id="killfeed"></div>
+  <div id="scoreboard" hidden></div>
   <div id="bottom-left">
     <div><span id="health-value">100</span><span id="armor-value"></span></div>
     <div id="health-bar-wrap"><div id="health-bar"></div></div>

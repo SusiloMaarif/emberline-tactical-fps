@@ -6,7 +6,9 @@
 // target speed. Roles: entry, holder, rotator, carrier, planter, defuser.
 import * as THREE from 'three';
 import { TEAM_COLORS } from './palette.js';
-import { WAYPOINTS, nearestWaypoint, findRoute, SITES } from './map.js';
+import { SITES } from './map.js';
+import { WAYPOINTS, nearestWaypoint, findRoute } from './nav.js';
+import { resolveAABB, clampBounds } from './collide.js';
 import { WEAPONS, damageAt } from './weapons.js';
 import { range } from './rng.js';
 
@@ -22,8 +24,8 @@ const NAMES_SLATE = ['Gravel', 'Iron', 'Slate', 'Stone', 'Pebble'];
 function makeMesh(scene, team) {
   const group = new THREE.Group();
   const color = TEAM_COLORS[team];
-  const bodyMat = new THREE.MeshStandardMaterial({ color: team === 'ember' ? 0x5a3a22 : 0x2e3d42, roughness: 0.85 });
-  const accentMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive: color, emissiveIntensity: 0.35 });
+  const bodyMat = new THREE.MeshStandardMaterial({ color: team === 'ember' ? 0x7a4a28 : 0x3d565e, roughness: 0.85 });
+  const accentMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive: color, emissiveIntensity: 0.9 });
   const skinMat = new THREE.MeshStandardMaterial({ color: 0xc9a586, roughness: 0.8 });
 
   const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.95, 10), bodyMat);
@@ -59,6 +61,7 @@ export function createBots(scene, colliders, random) {
       alive: true, position: new THREE.Vector3(spawn.x, 0, spawn.z),
       yaw: spawn.yaw, pitch: 0, speed: 0,
       route: [], routeIndex: 0, holdUntil: 0, target: null,
+      kills: 0, deaths: 0,
       lastSeen: null, lastSeenAt: -99, lastHeard: null, lastHeardAt: -99,
       reactAt: 0, burstLeft: 0, burstPause: 0, cooldown: 0,
       plantProgress: 0, defuseProgress: 0, carrying: false,
@@ -74,22 +77,8 @@ export function createBots(scene, colliders, random) {
     const p = bot.position;
     p.x += bot.velocity.x * dt;
     p.z += bot.velocity.z * dt;
-    for (const box of colliders) {
-      if (p.x + BOT_RADIUS <= box.min.x || p.x - BOT_RADIUS >= box.max.x) continue;
-      if (BOT_HEIGHT <= box.min.y || 0 >= box.max.y) continue;
-      if (p.z + BOT_RADIUS <= box.min.z || p.z - BOT_RADIUS >= box.max.z) continue;
-      const pushLeft = (p.x + BOT_RADIUS) - box.min.x;
-      const pushRight = box.max.x - (p.x - BOT_RADIUS);
-      const pushBack = (p.z + BOT_RADIUS) - box.min.z;
-      const pushFront = box.max.z - (p.z - BOT_RADIUS);
-      const min = Math.min(pushLeft, pushRight, pushBack, pushFront);
-      if (min === pushLeft) p.x = box.min.x - BOT_RADIUS;
-      else if (min === pushRight) p.x = box.max.x + BOT_RADIUS;
-      else if (min === pushBack) p.z = box.min.z - BOT_RADIUS;
-      else p.z = box.max.z + BOT_RADIUS;
-    }
-    p.x = Math.max(-21.6, Math.min(21.6, p.x));
-    p.z = Math.max(-17.6, Math.min(17.6, p.z));
+    resolveAABB(p, BOT_RADIUS, BOT_HEIGHT, colliders);
+    clampBounds(p, BOT_RADIUS, -22, 22, -18, 18);
   }
 
   // Line of sight from a bot's eye to a point, against map meshes.
@@ -175,7 +164,7 @@ export function createBots(scene, colliders, random) {
     step(dt, time, world) {
       const shots = [];
       const events = [];
-      const { player, shootables, smokeBlocked, noises } = world;
+      const { player, shootables, smokeBlocked, hearing } = world;
       const playerAlive = player.alive;
 
       for (const bot of bots) {
@@ -216,12 +205,9 @@ export function createBots(scene, colliders, random) {
           bot.target = null;
         }
 
-        // --- Hearing: recent noise pulls a bot toward it. ---
-        for (const n of noises) {
-          if (time - n.at > 1.5) continue;
-          const d = Math.hypot(n.x - bot.position.x, n.z - bot.position.z);
-          if (d < n.radius) { bot.lastHeard = { x: n.x, z: n.z }; bot.lastHeardAt = time; }
-        }
+        // --- Hearing: a recent noise pulls a bot toward it. ---
+        const heard = hearing.heardAt(bot.position.x, bot.position.z, time);
+        if (heard) { bot.lastHeard = heard; bot.lastHeardAt = time; }
 
         // --- Combat: burst fire once reacted (only while the target is in view this step). ---
         if (bot.target && targetPos && time >= bot.reactAt && bot.burstPause <= 0) {
@@ -319,6 +305,7 @@ export function createBots(scene, colliders, random) {
       if (bot.health <= 0) {
         bot.health = 0;
         bot.alive = false;
+        bot.deaths += 1;
         bot.mesh.group.visible = false;
         return true;
       }

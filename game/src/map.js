@@ -26,60 +26,8 @@ export const SPAWNS = {
   ],
 };
 
-// Waypoint graph the bots walk: nodes on the lanes, edges between neighbours.
-// Bots pick routes through it, hold at site nodes, and rotate along it.
-export const WAYPOINTS = [
-  { id: 0, x: 0, z: 14, links: [1, 2, 3] }, // ember spawn
-  { id: 1, x: -10, z: 12, links: [0, 4] }, // to A-long
-  { id: 2, x: 0, z: 8, links: [0, 5] }, // to mid
-  { id: 3, x: 10, z: 12, links: [0, 6] }, // to B-long
-  { id: 4, x: -17, z: 6, links: [1, 7] }, // A-long
-  { id: 5, x: 0, z: 0, links: [2, 8, 9] }, // mid hall
-  { id: 6, x: 17, z: 6, links: [3, 10] }, // B-long
-  { id: 7, x: -17, z: -3, links: [4, 11] }, // A approach
-  { id: 8, x: -8, z: -2, links: [5, 11] }, // mid to A
-  { id: 9, x: 8, z: -2, links: [5, 12] }, // mid to B
-  { id: 10, x: 17, z: -3, links: [6, 12] }, // B approach
-  { id: 11, x: -16, z: -9, links: [7, 8, 13] }, // site A
-  { id: 12, x: 16, z: -9, links: [9, 10, 14] }, // site B
-  { id: 13, x: -10, z: -13, links: [11, 15] }, // A back / slate side
-  { id: 14, x: 10, z: -13, links: [12, 15] }, // B back / slate side
-  { id: 15, x: 0, z: -14, links: [13, 14, 16] }, // slate spawn
-  { id: 16, x: 0, z: -6, links: [15, 5] }, // connector
-];
-
-export function nearestWaypoint(x, z) {
-  let best = 0;
-  let bestD = Infinity;
-  for (const w of WAYPOINTS) {
-    const d = (w.x - x) ** 2 + (w.z - z) ** 2;
-    if (d < bestD) { bestD = d; best = w.id; }
-  }
-  return best;
-}
-
-// Breadth-first route through the waypoint graph.
-export function findRoute(from, to) {
-  if (from === to) return [to];
-  const prev = new Map([[from, null]]);
-  const queue = [from];
-  while (queue.length) {
-    const cur = queue.shift();
-    for (const next of WAYPOINTS[cur].links) {
-      if (prev.has(next)) continue;
-      prev.set(next, cur);
-      if (next === to) {
-        const path = [to];
-        let node = to;
-        while (prev.get(node) !== null) { node = prev.get(node); path.unshift(node); }
-        return path;
-      }
-      queue.push(next);
-    }
-  }
-  return [to];
-}
-
+// Waypoint graph, routing and hearing live in nav.js / hearing.js now; this
+// file only knows sites, spawns and geometry.
 export function createMap(scene) {
   const group = new THREE.Group();
   scene.add(group);
@@ -186,10 +134,11 @@ export function createMap(scene) {
   box(2.2, 1.1, 2.2, -5, 0.55, 12.5, mats.hairline);
   box(2.2, 1.1, 2.2, 5, 0.55, 12.5, mats.hairline);
 
-  // Lighting: low ember sun, cool moon fill, warm site lights.
-  const hemi = new THREE.HemisphereLight(0x8a7a68, 0x191411, 1.35);
+  // Lighting: bright midday sun over the yard, cool fill, warm site lights —
+// the scene must read at a glance, not hide in dusk.
+  const hemi = new THREE.HemisphereLight(0x9a8a76, 0x2a211a, 2.0);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xffb27d, 2.7);
+  const sun = new THREE.DirectionalLight(0xffc98f, 3.6);
   sun.position.set(-14, 18, 12);
   sun.target.position.set(0, 0, -4);
   sun.castShadow = true;
@@ -201,13 +150,13 @@ export function createMap(scene) {
   sun.shadow.camera.far = 60;
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
-  const fill = new THREE.DirectionalLight(0x6f87a8, 0.7);
+  const fill = new THREE.DirectionalLight(0x7d94b8, 1.3);
   fill.position.set(12, 10, -14);
   scene.add(fill);
-  const siteA = new THREE.PointLight(0xff7a1a, 30, 18, 1.8);
+  const siteA = new THREE.PointLight(0xff7a1a, 45, 18, 1.8);
   siteA.position.set(-16, 4.5, -9);
   scene.add(siteA);
-  const siteB = new THREE.PointLight(0x37c8c3, 30, 18, 1.8);
+  const siteB = new THREE.PointLight(0x37c8c3, 45, 18, 1.8);
   siteB.position.set(16, 4.5, -9);
   scene.add(siteB);
 
